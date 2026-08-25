@@ -32,29 +32,47 @@ This package provides models for music structure analysis, predicting:
 
 ## Installation
 
-### 1. Install PyTorch
+> **This is a fork** of [mir-aidj/all-in-one](https://github.com/mir-aidj/all-in-one).
+> It drops the NATTEN requirement, so the package installs with plain `pip` on
+> current PyTorch, on Linux and macOS, and on Blackwell GPUs (`sm_120` / RTX
+> 50-series) -- no source builds and no post-install patching. Model weights and
+> outputs are unchanged -- see
+> [Neighborhood attention backends](#neighborhood-attention-backends) and
+> [CHANGELOG.md](CHANGELOG.md).
 
-Visit [PyTorch](https://pytorch.org/) and install the appropriate version for your system.
+Installation is upstream's, with the NATTEN step deleted:
 
-### 2. Install NATTEN (Required for Linux and Windows; macOS will auto-install)
-* **Linux**: Download from [NATTEN website](https://www.shi-labs.com/natten/)
-* **macOS**: Auto-installs with `allin1`.
-* **Windows**: Build from source:
-```shell
-pip install ninja # Recommended, not required
-git clone https://github.com/SHI-Labs/NATTEN
-cd NATTEN
-make
-```
-
-### 3. Install the package
+### 1. (Optional) Install PyTorch
 
 ```shell
-pip install git+https://github.com/CPJKU/madmom  # install the latest madmom directly from GitHub
-pip install allin1  # install this package
+pip install torch
 ```
 
-### 4. (Optional) Install FFmpeg for MP3 support
+You can skip this -- `demucs` requires `torch>=2.1`, so one gets installed either
+way. Do it explicitly when you want a particular build:
+
+* **macOS (Apple Silicon)** -- the default wheel is MPS-capable.
+* **Linux** -- the default wheel is a CUDA build. Recent ones are built against
+  CUDA 13 and already cover `sm_120`, so RTX 5090 works out of the box. To pin a
+  CUDA version: `pip install torch --index-url https://download.pytorch.org/whl/cu130`.
+
+Blackwell (`sm_120`) needs `torch >= 2.7` built against CUDA 12.8 or newer. Check
+what you have with:
+
+```shell
+python -c "import torch; print(torch.cuda.get_arch_list())"
+```
+
+### 2. Install the package
+
+```shell
+pip install git+https://github.com/CPJKU/madmom   # latest madmom, from GitHub
+pip install git+https://github.com/Aavu/all-in-one
+```
+
+No NATTEN, no source builds, no post-install patching.
+
+### 3. (Optional) Install FFmpeg for MP3 support
 
 For ubuntu:
 
@@ -68,6 +86,41 @@ For macOS:
 brew install ffmpeg
 ```
 
+### Neighborhood attention backends
+
+allin1's DINAT encoder uses *unfused* neighborhood attention with a learned
+relative positional bias (RPB). NATTEN 0.20 removed those ops, and none of its
+fused backends accept an additive bias, so no NATTEN >= 0.20 can run this model
+regardless of how the imports are spelled. This fork therefore ships an
+equivalent pure-PyTorch implementation in
+[`allin1/models/neighborhood_attention.py`](src/allin1/models/neighborhood_attention.py)
+and uses it by default.
+
+At this model's sizes that costs nothing worth measuring: `kernel_size` is 5, so
+the attention score tensor is 5 floats per query (25 for the 2D instrument
+attention). The memory pressure that fused neighborhood-attention kernels exist
+to relieve does not arise here.
+
+If you already have a NATTEN that still has the unfused ops (0.16-0.17.x), it is
+used automatically and you keep its native CUDA kernels:
+
+```shell
+pip install "allin1[natten] @ git+https://github.com/Aavu/all-in-one"
+```
+
+Note that NATTEN 0.17.5 pins you to `torch <= 2.6` and needs a source build to
+reach `sm_120`, which is what this fork exists to avoid. Override the choice with
+`ALLIN1_NA_BACKEND`:
+
+| value | behaviour |
+|---|---|
+| `auto` (default) | NATTEN's unfused ops if present, else PyTorch |
+| `torch` | always the PyTorch implementation |
+| `natten` | require NATTEN's unfused ops; error if unavailable |
+
+```shell
+python -c "from allin1.models import neighborhood_attention as na; print(na.BACKEND)"
+```
 
 ## Usage for CLI
 

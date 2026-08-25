@@ -7,7 +7,7 @@ name = "allin1"
 dynamic = ["version"]
 description = "All-In-One Music Structure Analyzer"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "MIT"
 keywords = ["music", "beat", "downbeat", "tracking", "structure", "analysis", "allin1"]
 authors = [
@@ -16,17 +16,27 @@ authors = [
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
   "numpy",
   "librosa",
-  "natten; platform_system == 'Darwin'",
+  # natten removed. allin1's neighborhood attention now falls back to
+  # allin1/models/neighborhood_attention.py (plain torch) when natten does not
+  # provide the unfused RPB ops -- which is every natten >= 0.20, since 0.20
+  # deleted them. That fallback is also what makes Blackwell / sm_120 (RTX 5090)
+  # work with nothing but a stock cu128+ torch wheel: no CUDA toolkit, no source
+  # build, no patched setup.py. See that module's docstring for details.
+  #
+  # torch is deliberately still not declared here, exactly as upstream: demucs
+  # requires torch>=2.1 with no upper bound, so `pip install` gets a torch, and
+  # installing your preferred build first keeps that choice yours.
   "demucs",
   "hydra-core",
   "omegaconf",
@@ -34,7 +44,16 @@ dependencies = [
   "matplotlib",
 ]
 
+# natten is optional and no longer used by default. Install it if you want
+# natten's own CUDA kernels for allin1's attention, which requires a version that
+# still has the unfused ops (0.16-0.17.x) -- and note 0.17.5 pins you to
+# torch <= 2.6. With natten >= 0.20 installed, allin1 ignores it and uses the
+# torch fallback, because the ops it needs no longer exist there.
 [project.optional-dependencies]
+natten = [
+  "natten>=0.16,<0.18",
+]
+
 train = [
   "lightning",
   "timm",
@@ -44,9 +63,9 @@ train = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/mir-aidj/all-in-one#readme"
-Issues = "https://github.com/mir-aidj/all-in-one/issues"
-Source = "https://github.com/mir-aidj/all-in-one"
+Documentation = "https://github.com/Aavu/all-in-one#readme"
+Issues = "https://github.com/Aavu/all-in-one/issues"
+Source = "https://github.com/Aavu/all-in-one"
 
 [project.scripts]
 allin1 = "allin1.cli:main"
