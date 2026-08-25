@@ -2,15 +2,14 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.gridspec as gridspec
 import librosa.feature
-import demucs.separate
+from demucs.audio import AudioFile
 
 from functools import partial
-from multiprocessing import Pool
 from typing import Union, List, Mapping
 from tqdm import tqdm
 
 from .typings import AnalysisResult, PathLike
-from .utils import mkpath
+from .utils import close_pool, imap_maybe_parallel, mkpath
 
 HARMONIX_COLORS = {
   'start': 'black',
@@ -37,17 +36,11 @@ def visualize(
     results = [results]
 
   plot_fn = partial(_plot, out_dir=out_dir)
-  if multiprocess:
-    pool = Pool()
-    iterator = pool.imap_unordered(plot_fn, results)
-  else:
-    iterator = map(plot_fn, results)
+  iterator, pool = imap_maybe_parallel(plot_fn, results, multiprocess, unordered=True)
 
   figs = [fig for fig in tqdm(iterator, desc='Visualizing results', total=len(results))]
 
-  if multiprocess:
-    pool.close()
-    pool.join()
+  close_pool(pool)
 
   if not return_list:
     return figs[0]
@@ -64,7 +57,9 @@ def _plot(
     colors = HARMONIX_COLORS
 
   sr = 44100
-  y = demucs.separate.load_track(result.path, 1, sr)[0].numpy()
+  # demucs.separate.load_track was removed in demucs 4.1; AudioFile is the
+  # public API it wrapped, and read() resamples and remixes for us.
+  y = AudioFile(result.path).read(streams=0, samplerate=sr, channels=1)[0].numpy()
   # y, sr = librosa.load(result.path, sr=None, mono=True)
   rms = librosa.feature.rms(y=y, frame_length=4096, hop_length=1024)[0]
 

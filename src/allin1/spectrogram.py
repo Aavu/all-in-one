@@ -2,11 +2,11 @@ import numpy as np
 from pathlib import Path
 from typing import List, Tuple
 from tqdm import tqdm
-from multiprocessing import Pool
 from madmom.audio.signal import FramedSignalProcessor, Signal
 from madmom.audio.stft import ShortTimeFourierTransformProcessor
 from madmom.processors import SequentialProcessor
 from madmom.audio.spectrogram import FilteredSpectrogramProcessor, LogarithmicSpectrogramProcessor
+from .utils import close_pool, imap_maybe_parallel
 
 
 def extract_spectrograms(demix_paths: List[Path], spec_dir: Path, multiprocess: bool = True):
@@ -38,24 +38,15 @@ def extract_spectrograms(demix_paths: List[Path], spec_dir: Path, multiprocess: 
     spec = LogarithmicSpectrogramProcessor(mul=1, add=1)
     processor = SequentialProcessor([frames, stft, filt, spec])
 
-    # Process all tracks using multiprocessing.
-    if multiprocess:
-      pool = Pool()
-      map_fn = pool.imap
-    else:
-      pool = None
-      map_fn = map
-
-    iterator = map_fn(_extract_spectrogram, [
-      (src, dst, processor)
-      for src, dst in todos
-    ])
+    # Process all tracks, in a pool only when there is more than one.
+    iterator, pool = imap_maybe_parallel(
+      _extract_spectrogram,
+      [(src, dst, processor) for src, dst in todos],
+      multiprocess,
+    )
     for _ in tqdm(iterator, total=len(todos), desc='Extracting spectrograms'):
       pass
-
-    if pool:
-      pool.close()
-      pool.join()
+    close_pool(pool)
 
   return spec_paths
 

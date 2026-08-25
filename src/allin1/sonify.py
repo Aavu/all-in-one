@@ -2,15 +2,14 @@ import numpy as np
 
 import torch
 import librosa
-import demucs.separate
+from demucs.audio import AudioFile, save_audio
 
 from functools import partial
-from multiprocessing import Pool
 from typing import Union, List, Tuple
 from tqdm import tqdm
 from numpy.typing import NDArray
 from .typings import AnalysisResult, PathLike, Segment
-from .utils import mkpath
+from .utils import close_pool, imap_maybe_parallel, mkpath
 
 
 def sonify(
@@ -24,17 +23,11 @@ def sonify(
     results = [results]
 
   sonif_fn = partial(_sonify, out_dir=out_dir)
-  if multiprocess:
-    pool = Pool()
-    iterator = pool.imap_unordered(sonif_fn, results)
-  else:
-    iterator = map(sonif_fn, results)
+  iterator, pool = imap_maybe_parallel(sonif_fn, results, multiprocess, unordered=True)
 
   sonifs = [sonif for sonif in tqdm(iterator, desc='Sonifying results', total=len(results))]
 
-  if multiprocess:
-    pool.close()
-    pool.join()
+  close_pool(pool)
 
   if not return_list:
     return sonifs[0]
@@ -46,7 +39,9 @@ def _sonify(
   out_dir: PathLike = None,
 ) -> Tuple[NDArray, float]:
   sr = 44100
-  y = demucs.separate.load_track(result.path, 2, sr).numpy()
+  # demucs.separate.load_track was removed in demucs 4.1; AudioFile is the
+  # public API it wrapped, and read() resamples and remixes for us.
+  y = AudioFile(result.path).read(streams=0, samplerate=sr, channels=2).numpy()
   # y, sr = librosa.load(result.path, sr=None, mono=False)
 
   length = y.shape[-1]
@@ -60,7 +55,7 @@ def _sonify(
     out_dir = mkpath(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
 
-    demucs.separate.save_audio(
+    save_audio(
       wav=torch.from_numpy(mixed),
       path=out_dir / f'{result.path.stem}.sonif{result.path.suffix}',
       samplerate=sr,

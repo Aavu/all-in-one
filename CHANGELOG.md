@@ -38,6 +38,34 @@ downbeat times, BPM and segment boundaries.
   against a naive transcription of natten 0.17.5's reference CPU kernels (no
   natten install needed) and against natten itself where available.
 
+### Fixed
+
+- `analyze()` no longer hangs when called from a script without an
+  `if __name__ == '__main__':` guard. `spectrogram.py` created a `Pool()`
+  unconditionally; on macOS and Windows, where multiprocessing defaults to the
+  `spawn` start method, every child re-imported the caller's `__main__`,
+  re-entered `analyze()`, tried to spawn again and died with "An attempt has
+  been made to start a new process before the current process has finished its
+  bootstrapping phase" -- leaving the parent blocked on a pool of dead workers.
+  A pool is now only created when there is more than one item to process, which
+  also removes the pointless per-CPU worker spin-up for the single-file case.
+  Same change in `visualize()` and `sonify()`. Batch callers still get the pool,
+  and for them the standard Python rule applies: guard the entry point, or pass
+  `multiprocess=False`.
+- `visualize()` and `sonify()` worked against `demucs.separate.load_track`,
+  which demucs removed in 4.1, so both raised `AttributeError` on any current
+  demucs. They now use `demucs.audio.AudioFile`, the public API `load_track`
+  wrapped.
+
+### Known issues
+
+- `visualize=True` with more than one track fails on macOS: matplotlib Figures
+  returned from pool workers cannot be unpickled under the interactive MacOSX
+  backend ("Cannot create a GUI FigureManager outside the main thread"). The
+  plot files are still written correctly; only the returned Figure objects fail.
+  Pass `multiprocess=False`, or select a non-interactive backend
+  (`matplotlib.use('Agg')`) before calling. Pre-existing upstream behaviour.
+
 ### Removed
 
 - The `natten; platform_system == 'Darwin'` dependency.
