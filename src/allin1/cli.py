@@ -3,6 +3,7 @@ import torch
 
 from pathlib import Path
 from .analyze import analyze
+from .demix import DEMIX_FORMATS
 
 
 def make_parser():
@@ -31,6 +32,8 @@ def make_parser():
                       help='Keep demixed audio files and spectrograms (default: False)')
   parser.add_argument('--demix-dir', type=Path, default=cwd / 'demix',
                       help='Path to a directory to store demixed tracks (default: ./demix)')
+  parser.add_argument('--demix-format', type=str, default='wav', choices=DEMIX_FORMATS,
+                      help='Audio format of the demixed tracks (default: wav)')
   parser.add_argument('--spec-dir', type=Path, default=cwd / 'spec',
                       help='Path to a directory to store spectrograms (default: ./spec)')
   parser.add_argument('--overwrite', action='store_true', default=False,
@@ -60,6 +63,7 @@ def main():
     include_activations=args.activ,
     include_embeddings=args.embed,
     demix_dir=args.demix_dir,
+    demix_format=args.demix_format,
     spec_dir=args.spec_dir,
     keep_byproducts=args.keep_byproducts,
     overwrite=args.overwrite,

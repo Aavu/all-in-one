@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `--demix-format {wav,mp3}` for the CLI and `demix_format='wav'|'mp3'` for
+  `analyze()`, selecting the audio format demucs writes the separated stems in.
+  Defaults to `wav`, so existing behaviour and any already-demixed `.wav` cache
+  are unchanged. `mp3` passes `--mp3` to `demucs.separate` and cuts the
+  byproduct size roughly tenfold, which matters when `--keep-byproducts` is set;
+  the spectrogram reader and the byproduct cleanup follow the chosen extension.
+  Note that the demixed-stem cache is keyed by extension, so switching format
+  re-runs separation for tracks demixed in the other one.
+
 ## [1.2.0] - 2026-08-25
 
 Fork maintenance release. No change to model weights, architecture, or outputs --

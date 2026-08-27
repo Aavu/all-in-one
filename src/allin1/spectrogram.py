@@ -9,7 +9,12 @@ from madmom.audio.spectrogram import FilteredSpectrogramProcessor, LogarithmicSp
 from .utils import close_pool, imap_maybe_parallel
 
 
-def extract_spectrograms(demix_paths: List[Path], spec_dir: Path, multiprocess: bool = True):
+def extract_spectrograms(
+  demix_paths: List[Path],
+  spec_dir: Path,
+  multiprocess: bool = True,
+  demix_format: str = 'wav',
+):
   todos = []
   spec_paths = []
   for src in demix_paths:
@@ -41,7 +46,7 @@ def extract_spectrograms(demix_paths: List[Path], spec_dir: Path, multiprocess: 
     # Process all tracks, in a pool only when there is more than one.
     iterator, pool = imap_maybe_parallel(
       _extract_spectrogram,
-      [(src, dst, processor) for src, dst in todos],
+      [(src, dst, processor, demix_format) for src, dst in todos],
       multiprocess,
     )
     for _ in tqdm(iterator, total=len(todos), desc='Extracting spectrograms'):
@@ -51,15 +56,17 @@ def extract_spectrograms(demix_paths: List[Path], spec_dir: Path, multiprocess: 
   return spec_paths
 
 
-def _extract_spectrogram(args: Tuple[Path, Path, SequentialProcessor]):
-  src, dst, processor = args
+def _extract_spectrogram(args: Tuple[Path, Path, SequentialProcessor, str]):
+  src, dst, processor, demix_format = args
 
   dst.parent.mkdir(parents=True, exist_ok=True)
 
-  sig_bass = Signal(src / 'bass.wav', num_channels=1)
-  sig_drums = Signal(src / 'drums.wav', num_channels=1)
-  sig_other = Signal(src / 'other.wav', num_channels=1)
-  sig_vocals = Signal(src / 'vocals.wav', num_channels=1)
+  # str(), not Path: madmom reads wav itself but shells out to ffmpeg for
+  # everything else, and its ffmpeg path rejects anything that is not a string.
+  sig_bass = Signal(str(src / f'bass.{demix_format}'), num_channels=1)
+  sig_drums = Signal(str(src / f'drums.{demix_format}'), num_channels=1)
+  sig_other = Signal(str(src / f'other.{demix_format}'), num_channels=1)
+  sig_vocals = Signal(str(src / f'vocals.{demix_format}'), num_channels=1)
 
   spec_bass = processor(sig_bass)
   spec_drums = processor(sig_drums)

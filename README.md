@@ -172,7 +172,7 @@ All available options are as follows:
 $ allin1 -h
 
 usage: allin1 [-h] [-o OUT_DIR] [-v] [--viz-dir VIZ_DIR] [-s] [--sonif-dir SONIF_DIR] [-a] [-e] [-m MODEL] [-d DEVICE] [-k]
-              [--demix-dir DEMIX_DIR] [--spec-dir SPEC_DIR]
+              [--demix-dir DEMIX_DIR] [--demix-format {wav,mp3}] [--spec-dir SPEC_DIR] [--overwrite] [--no-multiprocess]
               paths [paths ...]
 
 positional arguments:
@@ -197,7 +197,11 @@ options:
                         Keep demixed audio files and spectrograms (default: False)
   --demix-dir DEMIX_DIR
                         Path to a directory to store demixed tracks (default: ./demix)
+  --demix-format {wav,mp3}
+                        Audio format of the demixed tracks (default: wav)
   --spec-dir SPEC_DIR   Path to a directory to store spectrograms (default: ./spec)
+  --overwrite           Overwrite existing files (default: False)
+  --no-multiprocess     Disable multiprocessing (default: False)
 ```
 
 ## Usage for Python
@@ -277,6 +281,9 @@ Whether to include embeddings in the analysis results or not.
   
 - `demix_dir` : `PathLike` (optional)  
 Path to the directory where the source-separated audio will be saved. Default is './demix'.
+  
+- `demix_format` : `str` (optional)  
+Audio format of the source-separated audio, either 'wav' or 'mp3'. Default is 'wav'.
   
 - `spec_dir` : `PathLike` (optional)  
 Path to the directory where the spectrograms will be saved. Default is './spec'.

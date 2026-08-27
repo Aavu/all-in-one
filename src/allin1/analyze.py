@@ -2,7 +2,7 @@ import torch
 
 from typing import List, Union
 from tqdm import tqdm
-from .demix import demix
+from .demix import demix, check_demix_format, STEMS
 from .spectrogram import extract_spectrograms
 from .models import load_pretrained_model
 from .visualize import visualize as _visualize
@@ -28,6 +28,7 @@ def analyze(
   include_activations: bool = False,
   include_embeddings: bool = False,
   demix_dir: PathLike = './demix',
+  demix_format: str = 'wav',
   spec_dir: PathLike = './spec',
   keep_byproducts: bool = False,
   overwrite: bool = False,
@@ -59,6 +60,8 @@ def analyze(
       Whether to include embeddings in the analysis results or not.
   demix_dir : PathLike, optional
       Path to the directory where the source-separated audio will be saved. Default is './demix'.
+  demix_format : str, optional
+      Audio format of the source-separated audio, either 'wav' or 'mp3'. Default is 'wav'.
   spec_dir : PathLike, optional
       Path to the directory where the spectrograms will be saved. Default is './spec'.
   keep_byproducts : bool, optional
@@ -81,6 +84,7 @@ def analyze(
     paths = [paths]
   if not paths:
     raise ValueError('At least one path must be specified.')
+  check_demix_format(demix_format)
   paths = [mkpath(p) for p in paths]
   paths = expand_paths(paths)
   check_paths(paths)
@@ -115,10 +119,10 @@ def analyze(
   # Analyze the tracks that are not analyzed yet.
   if todo_paths:
     # Run HTDemucs for source separation only for the tracks that are not analyzed yet.
-    demix_paths = demix(todo_paths, demix_dir, device)
+    demix_paths = demix(todo_paths, demix_dir, device, demix_format)
 
     # Extract spectrograms for the tracks that are not analyzed yet.
-    spec_paths = extract_spectrograms(demix_paths, spec_dir, multiprocess)
+    spec_paths = extract_spectrograms(demix_paths, spec_dir, multiprocess, demix_format)
 
     # Load the model.
     model = load_pretrained_model(
@@ -165,8 +169,8 @@ def analyze(
 
   if not keep_byproducts:
     for path in demix_paths:
-      for stem in ['bass', 'drums', 'other', 'vocals']:
-        (path / f'{stem}.wav').unlink(missing_ok=True)
+      for stem in STEMS:
+        (path / f'{stem}.{demix_format}').unlink(missing_ok=True)
       rmdir_if_empty(path)
     rmdir_if_empty(demix_dir / 'htdemucs')
     rmdir_if_empty(demix_dir)
